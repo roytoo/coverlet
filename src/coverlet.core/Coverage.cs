@@ -14,22 +14,27 @@ namespace Coverlet.Core
         private string _module;
         private string _identifier;
         private string[] _filters;
-        private string[] _rules;
+        private string[] _excludes;
         private List<InstrumenterResult> _results;
 
-        public Coverage(string module, string identifier, string[] filters, string[] rules)
+        public string Identifier
+        {
+            get { return _identifier; }
+        }
+
+        public Coverage(string module, string[] filters, string[] excludes)
         {
             _module = module;
-            _identifier = identifier;
             _filters = filters;
-            _rules = rules;
+            _excludes = excludes;
+            _identifier = Guid.NewGuid().ToString();
             _results = new List<InstrumenterResult>();
         }
 
         public void PrepareModules()
         {
             string[] modules = InstrumentationHelper.GetCoverableModules(_module);
-            string[] excludedFiles =  InstrumentationHelper.GetExcludedFiles(_rules);
+            string[] excludes =  InstrumentationHelper.GetExcludedFiles(_excludes);
             _filters = _filters?.Where(f => InstrumentationHelper.IsValidFilterExpression(f)).ToArray();
 
             foreach (var module in modules)
@@ -37,7 +42,7 @@ namespace Coverlet.Core
                 if (InstrumentationHelper.IsModuleExcluded(module, _filters))
                     continue;
 
-                var instrumenter = new Instrumenter(module, _identifier, _filters, excludedFiles);
+                var instrumenter = new Instrumenter(module, _identifier, _filters, excludes);
                 if (instrumenter.CanInstrument())
                 {
                     InstrumentationHelper.BackupOriginalModule(module, _identifier);
@@ -55,10 +60,10 @@ namespace Coverlet.Core
             foreach (var result in _results)
             {
                 Documents documents = new Documents();
-                foreach (var doc in result.Documents)
+                foreach (var doc in result.Documents.Values)
                 {
                     // Construct Line Results
-                    foreach (var line in doc.Lines)
+                    foreach (var line in doc.Lines.Values)
                     {
                         if (documents.TryGetValue(doc.Path, out Classes classes))
                         {
@@ -66,19 +71,19 @@ namespace Coverlet.Core
                             {
                                 if (methods.TryGetValue(line.Method, out Method method))
                                 {
-                                    documents[doc.Path][line.Class][line.Method].Lines.Add(line.Number, new LineInfo { Hits = line.Hits });
+                                    documents[doc.Path][line.Class][line.Method].Lines.Add(line.Number, line.Hits);
                                 }
                                 else
                                 {
                                     documents[doc.Path][line.Class].Add(line.Method, new Method());
-                                    documents[doc.Path][line.Class][line.Method].Lines.Add(line.Number,  new LineInfo { Hits = line.Hits });
+                                    documents[doc.Path][line.Class][line.Method].Lines.Add(line.Number, line.Hits);
                                 }
                             }
                             else
                             {
                                 documents[doc.Path].Add(line.Class, new Methods());
                                 documents[doc.Path][line.Class].Add(line.Method, new Method());
-                                documents[doc.Path][line.Class][line.Method].Lines.Add(line.Number,  new LineInfo { Hits = line.Hits });
+                                documents[doc.Path][line.Class][line.Method].Lines.Add(line.Number, line.Hits);
                             }
                         }
                         else
@@ -86,12 +91,12 @@ namespace Coverlet.Core
                             documents.Add(doc.Path, new Classes());
                             documents[doc.Path].Add(line.Class, new Methods());
                             documents[doc.Path][line.Class].Add(line.Method, new Method());
-                            documents[doc.Path][line.Class][line.Method].Lines.Add(line.Number,  new LineInfo { Hits = line.Hits });
+                            documents[doc.Path][line.Class][line.Method].Lines.Add(line.Number, line.Hits);
                         }
                     }
 
                     // Construct Branch Results
-                    foreach (var branch in doc.Branches)
+                    foreach (var branch in doc.Branches.Values)
                     {
                         if (documents.TryGetValue(doc.Path, out Classes classes))
                         {
@@ -99,26 +104,15 @@ namespace Coverlet.Core
                             {
                                 if (methods.TryGetValue(branch.Method, out Method method))
                                 {
-                                    if (method.Branches.TryGetValue(branch.Number, out List<BranchInfo> branchInfo))
-                                    {
-                                        documents[doc.Path][branch.Class][branch.Method].Branches[branch.Number].Add(new BranchInfo
-                                            { Hits = branch.Hits, Offset = branch.Offset, EndOffset = branch.EndOffset, Path = branch.Path, Ordinal = branch.Ordinal }
-                                        );
-                                    }
-                                    else
-                                    {
-                                        documents[doc.Path][branch.Class][branch.Method].Branches.Add(branch.Number, new List<BranchInfo>());
-                                        documents[doc.Path][branch.Class][branch.Method].Branches[branch.Number].Add(new BranchInfo
-                                            { Hits = branch.Hits, Offset = branch.Offset, EndOffset = branch.EndOffset, Path = branch.Path, Ordinal = branch.Ordinal }
-                                        );
-                                    }
+                                    method.Branches.Add(new BranchInfo
+                                        { Line = branch.Number, Hits = branch.Hits, Offset = branch.Offset, EndOffset = branch.EndOffset, Path = branch.Path, Ordinal = branch.Ordinal }
+                                    );
                                 }
                                 else
                                 {
                                     documents[doc.Path][branch.Class].Add(branch.Method, new Method());
-                                    documents[doc.Path][branch.Class][branch.Method].Branches.Add(branch.Number, new List<BranchInfo>());
-                                    documents[doc.Path][branch.Class][branch.Method].Branches[branch.Number].Add(new BranchInfo
-                                        { Hits = branch.Hits, Offset = branch.Offset, EndOffset = branch.EndOffset, Path = branch.Path, Ordinal = branch.Ordinal }
+                                    documents[doc.Path][branch.Class][branch.Method].Branches.Add(new BranchInfo
+                                        { Line = branch.Number, Hits = branch.Hits, Offset = branch.Offset, EndOffset = branch.EndOffset, Path = branch.Path, Ordinal = branch.Ordinal }
                                     );
                                 }
                             }
@@ -126,9 +120,8 @@ namespace Coverlet.Core
                             {
                                 documents[doc.Path].Add(branch.Class, new Methods());
                                 documents[doc.Path][branch.Class].Add(branch.Method, new Method());
-                                documents[doc.Path][branch.Class][branch.Method].Branches.Add(branch.Number, new List<BranchInfo>());
-                                documents[doc.Path][branch.Class][branch.Method].Branches[branch.Number].Add(new BranchInfo
-                                    { Hits = branch.Hits, Offset = branch.Offset, EndOffset = branch.EndOffset, Path = branch.Path, Ordinal = branch.Ordinal }
+                                documents[doc.Path][branch.Class][branch.Method].Branches.Add(new BranchInfo
+                                    { Line = branch.Number, Hits = branch.Hits, Offset = branch.Offset, EndOffset = branch.EndOffset, Path = branch.Path, Ordinal = branch.Ordinal }
                                 );
                             }
                         }
@@ -137,9 +130,8 @@ namespace Coverlet.Core
                             documents.Add(doc.Path, new Classes());
                             documents[doc.Path].Add(branch.Class, new Methods());
                             documents[doc.Path][branch.Class].Add(branch.Method, new Method());
-                            documents[doc.Path][branch.Class][branch.Method].Branches.Add(branch.Number, new List<BranchInfo>());
-                            documents[doc.Path][branch.Class][branch.Method].Branches[branch.Number].Add(new BranchInfo
-                                { Hits = branch.Hits, Offset = branch.Offset, EndOffset = branch.EndOffset, Path = branch.Path, Ordinal = branch.Ordinal }
+                            documents[doc.Path][branch.Class][branch.Method].Branches.Add(new BranchInfo
+                                { Line = branch.Number, Hits = branch.Hits, Offset = branch.Offset, EndOffset = branch.EndOffset, Path = branch.Path, Ordinal = branch.Ordinal }
                             );
                         }
                     }
@@ -160,55 +152,52 @@ namespace Coverlet.Core
         {
             foreach (var result in _results)
             {
-                var i = 0;
-                while (true)
+                if (!File.Exists(result.HitsFilePath))
                 {
-                    var file = $"{result.HitsFilePath}_compressed_{i}";
-                    if(!File.Exists(file)) break;
-                    
-                    using (var fs = new FileStream(file, FileMode.Open))
-                    using (var gz = new GZipStream(fs, CompressionMode.Decompress))
-                    using (var sr = new StreamReader(gz))
+                    // File not instrumented, or nothing in it called.  Warn about this?
+                    continue;
+                }
+
+                using (var fs = new FileStream(result.HitsFilePath, FileMode.Open))
+                using (var sr = new StreamReader(fs))
+                {
+                    string row;
+                    while ((row = sr.ReadLine()) != null)
                     {
-                        string row;
-                        while ((row = sr.ReadLine()) != null)
+                        var info = row.Split(',');
+                        // Ignore malformed lines
+                        if (info.Length != 5)
+                            continue;
+
+                        bool isBranch = info[0] == "B";
+
+                        if (!result.Documents.TryGetValue(info[1], out var document))
                         {
-                            var info = row.Split(',');
-                            // Ignore malformed lines
-                            if (info.Length != 4)
-                                continue;
+                            continue;
+                        }
 
-                            bool isBranch = info[0] == "B";
+                        int start = int.Parse(info[2]);
+                        int hits = int.Parse(info[4]);
 
-                            var document = result.Documents.FirstOrDefault(d => d.Path == info[1]);
-                            if (document == null)
-                                continue;
-
-                            int start = int.Parse(info[2]);
-
-                            if (isBranch)
+                        if (isBranch)
+                        {
+                            int ordinal = int.Parse(info[3]);
+                            var branch = document.Branches[(start, ordinal)];
+                            branch.Hits = hits;
+                        }
+                        else
+                        {
+                            int end = int.Parse(info[3]);
+                            for (int j = start; j <= end; j++)
                             {
-                                uint ordinal = uint.Parse(info[3]);
-                                var branch = document.Branches.First(b => b.Number == start && b.Ordinal == ordinal);
-                                if (branch.Hits != int.MaxValue)
-                                    branch.Hits += branch.Hits + 1;
-                            }
-                            else
-                            {
-                                int end = int.Parse(info[3]);
-                                for (int j = start; j <= end; j++)
-                                {
-                                    var line = document.Lines.First(l => l.Number == j);
-                                    if (line.Hits != int.MaxValue)
-                                        line.Hits = line.Hits + 1;
-                                }
+                                var line = document.Lines[j];
+                                line.Hits = hits;
                             }
                         }
                     }
-
-                    InstrumentationHelper.DeleteHitsFile(file);
-                    i++;
                 }
+
+                InstrumentationHelper.DeleteHitsFile(result.HitsFilePath);
             }
         }
     }

@@ -15,7 +15,7 @@ namespace Coverlet.Core.Helpers
     {
         public static string[] GetCoverableModules(string module)
         {
-            IEnumerable<string> modules = Directory.GetFiles(Path.GetDirectoryName(module), "*.dll");
+            IEnumerable<string> modules = Directory.EnumerateFiles(Path.GetDirectoryName(module)).Where(f => f.EndsWith(".exe") || f.EndsWith(".dll"));
             modules = modules.Where(m => IsAssembly(m) && Path.GetFileName(m) != Path.GetFileName(module));
             return modules.ToArray();
         }
@@ -41,15 +41,13 @@ namespace Coverlet.Core.Helpers
 
         public static void CopyCoverletDependency(string module)
         {
-            var directory = Path.GetDirectoryName(module);
             var moduleFileName = Path.GetFileName(module);
-
-            var assembly = typeof(Coverage).Assembly;
-            string name = Path.GetFileName(assembly.Location);
-            if (name == moduleFileName)
+            if (Path.GetFileName(typeof(Coverage).Assembly.Location) == moduleFileName)
                 return;
 
-            File.Copy(assembly.Location, Path.Combine(directory, name), true);
+            var directory = Path.GetDirectoryName(module);
+            var assembly = typeof(Coverlet.Tracker.CoverageTracker).Assembly;
+            File.Copy(assembly.Location, Path.Combine(directory, Path.GetFileName(assembly.Location)), true);
         }
 
         public static void BackupOriginalModule(string module, string identifier)
@@ -168,15 +166,15 @@ namespace Coverlet.Core.Helpers
         public static bool IsLocalMethod(string method)
             => new Regex(WildcardToRegex("<*>*__*|*")).IsMatch(method);
 
-        public static string[] GetExcludedFiles(string[] rules)
+        public static string[] GetExcludedFiles(string[] excludes)
         {
             const string RELATIVE_KEY = nameof(RELATIVE_KEY);
             string parentDir = Directory.GetCurrentDirectory();
 
-            if (rules == null || !rules.Any()) return Array.Empty<string>();
+            if (excludes == null || !excludes.Any()) return Array.Empty<string>();
 
             var matcherDict = new Dictionary<string, Matcher>() { { RELATIVE_KEY, new Matcher() } };
-            foreach (var excludeRule in rules)
+            foreach (var excludeRule in excludes)
             {
                 if (Path.IsPathRooted(excludeRule))
                 {

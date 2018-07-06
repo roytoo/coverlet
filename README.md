@@ -1,4 +1,4 @@
-# coverlet [![Build Status](https://www.travis-ci.org/tonerdo/coverlet.svg?branch=master)](https://www.travis-ci.org/tonerdo/coverlet) [![Build status](https://ci.appveyor.com/api/projects/status/6rdf00wufospr4r8/branch/master?svg=true)](https://ci.appveyor.com/project/tonerdo/coverlet) [![codecov](https://codecov.io/gh/tonerdo/coverlet/branch/master/graph/badge.svg)](https://codecov.io/gh/tonerdo/coverlet) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+# coverlet [![Build status](https://ci.appveyor.com/api/projects/status/6rdf00wufospr4r8/branch/master?svg=true)](https://ci.appveyor.com/project/tonerdo/coverlet) [![codecov](https://codecov.io/gh/tonerdo/coverlet/branch/master/graph/badge.svg)](https://codecov.io/gh/tonerdo/coverlet) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 Coverlet is a cross platform code coverage library for .NET Core, with support for line, branch and method coverage.
 
@@ -64,7 +64,7 @@ Supported Formats:
 * opencover
 * cobertura
 
-The output folder of the coverage result file can also be specified using the `CoverletOutputDirectory` property.
+The output of the coverage result can also be specified using the `CoverletOutput` property.
 
 ### Threshold
 
@@ -121,6 +121,9 @@ dotnet test /p:CollectCoverage=true /p:Exclude="[coverlet.*]Coverlet.Core.Covera
 
 You can specify multiple filter expressions by separting them with a comma (`,`). If you specify multiple filters, then [you'll have to escape the surrounding quotes](https://github.com/Microsoft/msbuild/issues/2999#issuecomment-366078677) like this:
 `/p:Exclude=\"[coverlet.*]*,[*]Coverlet.Core*\"`.
+
+### Cake Addin
+If you're using [Cake Build](https://cakebuild.net) for your build script you can use the [Cake.Coverlet](https://github.com/Romanx/Cake.Coverlet) addin to provide you extensions to dotnet test for passing coverlet arguments in a strongly typed manner.
 
 ## Roadmap
 
